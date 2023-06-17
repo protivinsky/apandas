@@ -36,6 +36,6 @@ class AFrame(pd.DataFrame):
         """ Generate `acol AColumn` in the `AFrame`. """
         if not acol.name in self.columns:
             if self.verbose:
-                print(f'Key "{acol}" not found in the Frame, adding.')
+                print(f'Key "{acol}" not found in the AFrame, adding.')
             self[acol] = acol.func.func(self)
 

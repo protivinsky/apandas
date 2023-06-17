@@ -1,41 +1,40 @@
 from __future__ import annotations
 from typing import Optional, Union, Any
-
+import operator
 
 class AFunction:
+    """ Represents any function that can be applied to an AFrame / pd.DataFrame. """
     def __init__(self, func):
         self.func = func
 
+    def from_frame(self, af):
+        return self.func(af)
+
     def __add__(self, other):
-        return AFunction(lambda x: self.func(x) + (x[other] if isinstance(other, AColumn) else other))
+        return AFunction.apply_operator(operator.add, self, other)
 
     def __sub__(self, other):
-        return AFunction(lambda x: self.func(x) - (x[other] if isinstance(other, AColumn) else other))
+        return AFunction.apply_operator(operator.sub, self, other)
 
     def __mul__(self, other):
-        return AFunction(lambda x: self.func(x) * (x[other] if isinstance(other, AColumn) else other))
+        return AFunction.apply_operator(operator.mul, self, other)
 
     def __truediv__(self, other):
-        return AFunction(lambda x: self.func(x) / (x[other] if isinstance(other, AColumn) else other))
+        return AFunction.apply_operator(operator.truediv, self, other)
+
+    @staticmethod
+    def apply_operator(op, *args):
+        return AFunction(lambda af: op(*[(x.from_frame(af) if isinstance(x, AFunction) else x) for x in args]))
 
 
-class AColumn:
+class AColumn(AFunction):
+    """ Just a named function that can be accessed (and constructed on-the-fly if needed) from an AFrame. """
     def __init__(self, name: str, func: Optional[AFunction] = None):
         self.name = name
-        self.func = func
+        super().__init__(func)
+
+    def from_frame(self, af):
+        return af[self]
 
     def __str__(self):
         return self.name
-
-    def __add__(self, other: Union[AColumn, Any]):
-        return AFunction(lambda x: x[self] + (x[other] if isinstance(other, AColumn) else other))
-
-    def __sub__(self, other: Union[AColumn, Any]):
-        return AFunction(lambda x: x[self] - (x[other] if isinstance(other, AColumn) else other))
-
-    def __mul__(self, other: Union[AColumn, Any]):
-        return AFunction(lambda x: x[self] * (x[other] if isinstance(other, AColumn) else other))
-
-    def __truediv__(self, other: Union[AColumn, Any]):
-        return lambda x: x[self] / (x[other] if isinstance(other, AColumn) else other)
-

@@ -72,3 +72,21 @@ def test_getitem_iterable():
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
     pd.testing.assert_frame_equal(af[[u, v]], pd.DataFrame({'u': [4, 5, 6], 'v': [3, 6, 9]}))
     pd.testing.assert_frame_equal(af[[u, v]], af[['u', 'v']])
+
+
+def test_operator_priorities():
+    x = AColumn('x')
+    y = AColumn('y')
+    z = AColumn('z', x * y + x * y)
+
+    # create a dataframe
+    af = AFrame()
+    af[x] = [1, 2, 3]
+    af[y] = [3, 3, 3]
+
+    pd.testing.assert_series_equal(af[z], pd.Series([6, 12, 18], name='z'))
+
+    import operator
+
+    operator.add(x, y)
+

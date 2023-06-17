@@ -11,7 +11,7 @@ class AFrame(pd.DataFrame):
     def __getitem__(self, key):
         if isinstance(key, AColumn):
             if not key.name in self.columns:
-                self.add(key)
+                self.add_acolumn(key)
             key = str(key)
         elif isinstance(key, Iterable):
             orig_key = key
@@ -19,7 +19,7 @@ class AFrame(pd.DataFrame):
             for k in orig_key:
                 if isinstance(k, AColumn):
                     if not k.name in self.columns:
-                        self.add(k)
+                        self.add_acolumn(k)
                     key.append(str(k))
                 else:
                     key.append(k)
@@ -32,7 +32,8 @@ class AFrame(pd.DataFrame):
             key = [str(k) if isinstance(key, AColumn) else k for k in key]
         return super().__setitem__(key, value)
 
-    def add(self, acol: AColumn):
+    def add_acolumn(self, acol: AColumn):
+        """ Generate `acol AColumn` in the `AFrame`. """
         if not acol.name in self.columns:
             if self.verbose:
                 print(f'Key "{acol}" not found in the Frame, adding.')

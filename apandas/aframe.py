@@ -1,6 +1,6 @@
 from typing import Iterable
 import pandas as pd
-from apandas import AColumn
+from .acolumn import AColumn
 
 
 class AFrame(pd.DataFrame):

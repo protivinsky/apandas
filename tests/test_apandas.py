@@ -53,3 +53,22 @@ def test_calculation():
     af[x] = [1, 2, 3]
     af[y] = [3, 3, 3]
     pd.testing.assert_series_equal(af[z], pd.Series([-1, 1, 3], name='z'))
+
+
+def test_getitem_iterable():
+    # define columns you will add to the dataframe in the beginning
+    x = AColumn('x')
+    y = AColumn('y')
+
+    # and define the transformations of these columns
+    u = AColumn('u', x + y)
+    v = AColumn('v', x * y)
+
+    # create a dataframe
+    af = AFrame()
+    af[x] = [1, 2, 3]
+    af[y] = [3, 3, 3]
+
+    # if you just access the custom defined analytics, they are created on the fly and named with the given names
+    pd.testing.assert_frame_equal(af[[u, v]], pd.DataFrame({'u': [4, 5, 6], 'v': [3, 6, 9]}))
+    pd.testing.assert_frame_equal(af[[u, v]], af[['u', 'v']])

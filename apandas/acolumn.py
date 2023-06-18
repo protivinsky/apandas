@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, Union, Any
 import operator
 
+
 class AFunction:
     """ Represents any function that can be applied to an AFrame / pd.DataFrame. """
     def __init__(self, func):
@@ -9,6 +10,9 @@ class AFunction:
 
     def from_frame(self, af):
         return self.func(af)
+
+    def __call__(self, af):
+        return self.from_frame(af)
 
     def __add__(self, other):
         return AFunction.apply_operator(operator.add, self, other)
@@ -28,7 +32,10 @@ class AFunction:
 
 
 class AColumn(AFunction):
-    """ Just a named function that can be accessed (and constructed on-the-fly if needed) from an AFrame. """
+    """
+    Just a named function that can be accessed (and constructed on-the-fly if needed) from an AFrame.
+    No check is done that the shape conforms the DataFrame (hence can be added). Cached in the frame on the calculation.
+    """
     def __init__(self, name: str, func: Optional[AFunction] = None):
         self.name = name
         super().__init__(func)

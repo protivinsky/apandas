@@ -13,7 +13,7 @@ class AFrame(pd.DataFrame):
             if not key.name in self.columns:
                 self.add_acolumn(key)
             key = str(key)
-        elif isinstance(key, Iterable):
+        elif not isinstance(key, str) and isinstance(key, Iterable):
             orig_key = key
             key = []
             for k in orig_key:
@@ -38,4 +38,43 @@ class AFrame(pd.DataFrame):
             if self.verbose:
                 print(f'Key "{acol}" not found in the AFrame, adding.')
             self[acol] = acol.func.func(self)
+
+    def _fix_columns_kwarg(self, kwargs):
+        if 'columns' in kwargs:
+            columns = kwargs['columns']
+            if isinstance(columns, dict):
+                str_columns = {}
+                for col, new_col in columns.items():
+                    str_new_col = new_col.name if isinstance(new_col, AColumn) else new_col
+                    if isinstance(col, AColumn):
+                        self.add_acolumn(col)
+                        str_columns[str(col)] = str_new_col
+                    else:
+                        str_columns[col] = str_new_col
+                kwargs['columns'] = str_columns
+            else:
+                if isinstance(columns, str) or not(isinstance(columns, Iterable)
+                                                   or isinstance(columns, AColumn)):
+                    str_columns = columns
+                elif isinstance(columns, AColumn):
+                    self.add_acolumn(columns)
+                    str_columns = str(columns)
+                else:
+                    str_columns = []
+                    for col in columns:
+                        if isinstance(col, AColumn):
+                            self.add_acolumn(col)
+                            str_columns.append(str(col))
+                        else:
+                            str_columns.append(col)
+                kwargs['columns'] = str_columns
+        return kwargs
+
+    def rename(self, *args, **kwargs):
+        """ AFrame supports renaming of AColumns if specified via `columns` kwarg."""
+        return super().rename(*args, **self._fix_columns_kwarg(kwargs))
+
+    def drop(self, *args, **kwargs):
+        """ AFrame supports dropping of AColumns if specified via `columns` kwarg."""
+        return super().drop(*args, **self._fix_columns_kwarg(kwargs))
 

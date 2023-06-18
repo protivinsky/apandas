@@ -90,3 +90,44 @@ def test_operator_priorities():
 
     operator.add(x, y)
 
+
+def test_drop_columns():
+    x = AColumn('x')
+    y = AColumn('y')
+    z = AColumn('z', x * y + x * y)
+
+    af = AFrame()
+    af[x] = [1, 2, 3]
+    af[y] = [3, 3, 3]
+    af.add_acolumn(z)
+
+    new_af = af.drop(columns=[x, z])
+    # orig af is unmodified
+    assert all(c in af.columns for c in ['x', 'y', 'z'])
+    # but the new one has only 'y'
+    assert 'y' in new_af.columns
+    assert all(c not in new_af.columns for c in ['x', 'z'])
+
+
+def test_rename_columns():
+    x = AColumn('x')
+    y = AColumn('y')
+    z = AColumn('z', x * y + x * y)
+
+    af = AFrame()
+    af[x] = [1, 2, 3]
+    af[y] = [3, 3, 3]
+    af.add_acolumn(z)
+
+    new_af = af.rename(columns={x: 'a', z: 'b'})
+    # orig af is unmodified
+    assert all(c in af.columns for c in ['x', 'y', 'z'])
+    # new cols are in the new af
+    assert all(c in new_af.columns for c in ['a', 'y', 'b'])
+    # old cols are not in the new af
+    assert all(c not in new_af.columns for c in ['x', 'z'])
+    # and new cols are equal to the original series (up to names)
+    pd.testing.assert_series_equal(new_af['a'], af['x'].rename('a'))
+    pd.testing.assert_series_equal(new_af['b'], af['z'].rename('b'))
+
+

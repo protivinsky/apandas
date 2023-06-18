@@ -11,15 +11,21 @@ def test_initialization():
     af = AFrame(verbose=True)
 
 
-def test_types():
-    # define columns you will add to the dataframe in the beginning
+@pytest.fixture()
+def x_y_z_and_af():
     x = AColumn('x')
     y = AColumn('y')
+    z = AColumn('z', x * y + x * y)
 
-    # create a dataframe
     af = AFrame()
     af[x] = [1, 2, 3]
     af[y] = [3, 3, 3]
+    return x, y, z, af
+
+
+def test_types(x_y_z_and_af):
+    # define columns you will add to the dataframe in the beginning
+    x, y, _, af = x_y_z_and_af
 
     # AFrame is a subclass of pandas.DataFrame
     assert isinstance(af, pd.DataFrame)
@@ -28,20 +34,14 @@ def test_types():
     assert all(af.columns == ['x', 'y'])
 
 
-def test_calculation():
+def test_calculation(x_y_z_and_af):
     # define columns you will add to the dataframe in the beginning
-    x = AColumn('x')
-    y = AColumn('y')
+    x, y, _, af = x_y_z_and_af
 
     # and define the transformations of these columns
     u = AColumn('u', x + y)
     v = AColumn('v', x * y)
     z = AColumn('z', v - u)
-
-    # create a dataframe
-    af = AFrame()
-    af[x] = [1, 2, 3]
-    af[y] = [3, 3, 3]
 
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
     pd.testing.assert_series_equal(af[u], pd.Series([4, 5, 6], name='u'))
@@ -55,50 +55,25 @@ def test_calculation():
     pd.testing.assert_series_equal(af[z], pd.Series([-1, 1, 3], name='z'))
 
 
-def test_getitem_iterable():
-    # define columns you will add to the dataframe in the beginning
-    x = AColumn('x')
-    y = AColumn('y')
+def test_getitem_iterable(x_y_z_and_af):
+    x, y, _, af = x_y_z_and_af
 
     # and define the transformations of these columns
     u = AColumn('u', x + y)
     v = AColumn('v', x * y)
-
-    # create a dataframe
-    af = AFrame()
-    af[x] = [1, 2, 3]
-    af[y] = [3, 3, 3]
 
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
     pd.testing.assert_frame_equal(af[[u, v]], pd.DataFrame({'u': [4, 5, 6], 'v': [3, 6, 9]}))
     pd.testing.assert_frame_equal(af[[u, v]], af[['u', 'v']])
 
 
-def test_operator_priorities():
-    x = AColumn('x')
-    y = AColumn('y')
-    z = AColumn('z', x * y + x * y)
-
-    # create a dataframe
-    af = AFrame()
-    af[x] = [1, 2, 3]
-    af[y] = [3, 3, 3]
-
+def test_operator_priorities(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
     pd.testing.assert_series_equal(af[z], pd.Series([6, 12, 18], name='z'))
 
-    import operator
 
-    operator.add(x, y)
-
-
-def test_drop_columns():
-    x = AColumn('x')
-    y = AColumn('y')
-    z = AColumn('z', x * y + x * y)
-
-    af = AFrame()
-    af[x] = [1, 2, 3]
-    af[y] = [3, 3, 3]
+def test_drop_columns(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
     af.add_acolumn(z)
 
     new_af = af.drop(columns=[x, z])
@@ -109,14 +84,8 @@ def test_drop_columns():
     assert all(c not in new_af.columns for c in ['x', 'z'])
 
 
-def test_rename_columns():
-    x = AColumn('x')
-    y = AColumn('y')
-    z = AColumn('z', x * y + x * y)
-
-    af = AFrame()
-    af[x] = [1, 2, 3]
-    af[y] = [3, 3, 3]
+def test_rename_columns(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
     af.add_acolumn(z)
 
     new_af = af.rename(columns={x: 'a', z: 'b'})
@@ -131,3 +100,13 @@ def test_rename_columns():
     pd.testing.assert_series_equal(new_af['b'], af['z'].rename('b'))
 
 
+def test_preserve_aframe(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
+    af.add_acolumn(z)
+
+    # basic operations (copy, rename, drop, access) should preserve the AFrame
+    assert isinstance(af, AFrame)
+    assert isinstance(af.copy(), AFrame)
+    assert isinstance(af[x, z], AFrame)
+    assert isinstance(af.drop(columns=x), AFrame)
+    assert isinstance(af.rename(columns={x: 'a'}), AFrame)

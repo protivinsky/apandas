@@ -12,7 +12,7 @@ class AFrame(pd.DataFrame):
         if isinstance(key, AColumn):
             if not key.name in self.columns:
                 self.add_acolumn(key)
-            key = str(key)
+            return super().__getitem__(key)
         elif not isinstance(key, str) and isinstance(key, Iterable):
             orig_key = key
             key = []
@@ -23,6 +23,7 @@ class AFrame(pd.DataFrame):
                     key.append(str(k))
                 else:
                     key.append(k)
+            return AFrame(super().__getitem__(key))
         return super().__getitem__(key)
 
     def __setitem__(self, key, value):
@@ -72,9 +73,12 @@ class AFrame(pd.DataFrame):
 
     def rename(self, *args, **kwargs):
         """ AFrame supports renaming of AColumns if specified via `columns` kwarg."""
-        return super().rename(*args, **self._fix_columns_kwarg(kwargs))
+        return AFrame(super().rename(*args, **self._fix_columns_kwarg(kwargs)))
 
     def drop(self, *args, **kwargs):
         """ AFrame supports dropping of AColumns if specified via `columns` kwarg."""
-        return super().drop(*args, **self._fix_columns_kwarg(kwargs))
+        return AFrame(super().drop(*args, **self._fix_columns_kwarg(kwargs)))
+
+    def copy(self, *args, **kwargs):
+        return AFrame(super().copy(*args, *kwargs))
 

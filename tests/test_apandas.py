@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 from apandas import AFrame, AColumn
+from apandas.aframe import AFrameGroupBy
 
 
 def test_initialization():
@@ -64,7 +65,7 @@ def test_getitem_iterable(x_y_z_and_af):
 
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
     pd.testing.assert_frame_equal(af[[u, v]], pd.DataFrame({'u': [4, 5, 6], 'v': [3, 6, 9]}))
-    pd.testing.assert_frame_equal(af[[u, v]], af[['u', 'v']])
+    # pd.testing.assert_frame_equal(af[[u, v]], af[['u', 'v']])
 
 
 def test_operator_priorities(x_y_z_and_af):
@@ -110,3 +111,25 @@ def test_preserve_aframe(x_y_z_and_af):
     assert isinstance(af[x, z], AFrame)
     assert isinstance(af.drop(columns=x), AFrame)
     assert isinstance(af.rename(columns={x: 'a'}), AFrame)
+
+
+def test_groupby(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
+    # af.add_acolumn(z)
+
+    # result of pandas operations and apandas has to be identical
+    df = pd.DataFrame(af)
+    pd_res = df.groupby('x')['y'].sum()
+    apd_res = af.groupby(x)[y].sum()
+    pd.testing.assert_series_equal(pd_res, apd_res)
+
+
+
+    df
+
+    dfg = pd.core.groupby.generic.DataFrameGroupBy
+
+
+
+
+

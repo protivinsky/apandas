@@ -1,9 +1,85 @@
+from builtins import print
 from typing import Iterable
 import pandas as pd
 from .acolumn import AColumn
+import tree
 
 
-class AFrame(pd.DataFrame):
+class AMeta(type):
+    def __new__(mcs, name, bases, attrs):
+        aclass = super().__new__(mcs, name, bases, attrs)
+        parent_class = bases[0]
+
+
+        def any_acol_in_tree(t):
+            flags = []
+            def acol_in_tree(t):
+                b = isinstance(t, AColumn) or (isinstance(t, dict) and any(isinstance(k, AColumn) for k in t.keys()))
+                flags.append(b)
+            tree.traverse(acol_in_tree, t)
+            return any(flags)
+
+        def method_wrapper(method):
+            def wrapper(self, *args, **kwargs):
+                orig_args = args.__copy__() if hasattr(args, '__copy__') else args
+                orig_kwargs = kwargs.copy()
+
+                def map_keys(mapping):
+                    if isinstance(mapping, dict):
+                        keys = list(mapping.keys())
+                        for key in keys:
+                            if isinstance(key, AColumn):
+                                if name == 'AFrame':
+                                    self.add_acolumn(key)
+                                elif name == 'AFrameGroupBy' and not key.name in self.obj.columns:
+                                        self.obj.add_acolumn(key)
+                                mapping[key.name] = mapping.pop(key)
+
+                def map_leaves(x):
+                    if isinstance(x, AColumn):
+                        self.add_acolumn(x)
+                        return x.name
+                    else:
+                        return x
+
+                any_acol_args = any_acol_in_tree(orig_args)
+                any_acol_kwargs = any_acol_in_tree(orig_kwargs)
+                if any_acol_args:
+                    args = tree.traverse(map_keys, args)
+                    args = tree.map_structure(map_leaves, args)
+                    # print(f'Converting ARGS: {orig_args} --> {args}')
+                if any_acol_kwargs:
+                    kwargs = tree.traverse(map_keys, kwargs, top_down=False)
+                    kwargs = tree.map_structure(map_leaves, kwargs)
+                    # print(f'Converting KWARGS: {orig_kwargs} --> {kwargs}')
+
+                # print(f'Calling {method.__name__} with args={args}, kwargs={kwargs}')
+                result = method(self, *args, **kwargs)
+                if isinstance(result, pd.DataFrame) and not isinstance(result, AFrame):
+                    # print(f'Converting pd.DataFrame {result} to an AFrame:')
+                    result = AFrame(result)
+                if isinstance(result, pd.core.groupby.generic.DataFrameGroupBy) and not isinstance(
+                        result, AFrameGroupBy):
+                    # if isinstance(self, AFrame):
+                    #     self = pd.DataFrame(self)
+                    result = AFrameGroupBy(self, *args, **kwargs)
+
+                return result
+            return wrapper
+
+        for attr_name, attr_value in parent_class.__dict__.items():
+            if attr_name not in aclass.__dict__ and callable(attr_value):
+                if not attr_name.startswith('_') or (attr_name == '__getitem__' and name == 'AFrameGroupBy'):
+                    # print(f'Modifying {attr_name} on {name} from {parent_class.__name__}')
+                    setattr(aclass, attr_name, method_wrapper(attr_value))
+                else:
+                    # print(f'Keeping {attr_name} on {name} from {parent_class.__name__}')
+                    setattr(aclass, attr_name, attr_value)
+
+        return aclass
+
+
+class AFrame(pd.DataFrame, metaclass=AMeta):
     def __init__(self, *args, verbose=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.verbose = verbose
@@ -12,8 +88,8 @@ class AFrame(pd.DataFrame):
         if isinstance(key, AColumn):
             if not key.name in self.columns:
                 self.add_acolumn(key)
-            return super().__getitem__(key)
-        elif not isinstance(key, str) and isinstance(key, Iterable):
+            return super().__getitem__(str(key))
+        elif (not isinstance(key, str)) and isinstance(key, Iterable):
             orig_key = key
             key = []
             for k in orig_key:
@@ -38,47 +114,13 @@ class AFrame(pd.DataFrame):
         if not acol.name in self.columns:
             if self.verbose:
                 print(f'Key "{acol}" not found in the AFrame, adding.')
-            self[acol] = acol.func.func(self)
-
-    def _fix_columns_kwarg(self, kwargs):
-        if 'columns' in kwargs:
-            columns = kwargs['columns']
-            if isinstance(columns, dict):
-                str_columns = {}
-                for col, new_col in columns.items():
-                    str_new_col = new_col.name if isinstance(new_col, AColumn) else new_col
-                    if isinstance(col, AColumn):
-                        self.add_acolumn(col)
-                        str_columns[str(col)] = str_new_col
-                    else:
-                        str_columns[col] = str_new_col
-                kwargs['columns'] = str_columns
-            else:
-                if isinstance(columns, str) or not(isinstance(columns, Iterable)
-                                                   or isinstance(columns, AColumn)):
-                    str_columns = columns
-                elif isinstance(columns, AColumn):
-                    self.add_acolumn(columns)
-                    str_columns = str(columns)
-                else:
-                    str_columns = []
-                    for col in columns:
-                        if isinstance(col, AColumn):
-                            self.add_acolumn(col)
-                            str_columns.append(str(col))
-                        else:
-                            str_columns.append(col)
-                kwargs['columns'] = str_columns
-        return kwargs
-
-    def rename(self, *args, **kwargs):
-        """ AFrame supports renaming of AColumns if specified via `columns` kwarg."""
-        return AFrame(super().rename(*args, **self._fix_columns_kwarg(kwargs)))
-
-    def drop(self, *args, **kwargs):
-        """ AFrame supports dropping of AColumns if specified via `columns` kwarg."""
-        return AFrame(super().drop(*args, **self._fix_columns_kwarg(kwargs)))
+            super().__setitem__(acol.name, acol.func(self))
+            # self[acol] = acol.func(self)
 
     def copy(self, *args, **kwargs):
         return AFrame(super().copy(*args, *kwargs))
 
+
+class AFrameGroupBy(pd.core.groupby.generic.DataFrameGroupBy, metaclass=AMeta):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

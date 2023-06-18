@@ -40,7 +40,7 @@ Basic example
 
 from .version import VERSION as __version__
 from .acolumn import AFunction, AColumn
-from .aframe import AFrame
+from .aframe import AFrame, ASeries
 
-__all__ = ['AFunction', 'AColumn', 'AFrame']
+__all__ = ['AFunction', 'AColumn', 'AFrame', 'ASeries']
 __author__ = 'Tomas Protivinsky'

@@ -1,15 +1,21 @@
-from builtins import print
+import functools
 from typing import Iterable
 import pandas as pd
-from .acolumn import AColumn
 import tree
+from .acolumn import AColumn
 
 
 class AMeta(type):
+    """
+    A metaclass for AFrame (and AFrameGroupBy) that modifies all the methods of the parent class
+    so they are compatible with using AColumn arguments instead of strings as column names.
+
+    Admittedly this is a bit hacky, but it does what I need.
+    """
+
     def __new__(mcs, name, bases, attrs):
         aclass = super().__new__(mcs, name, bases, attrs)
         parent_class = bases[0]
-
 
         def any_acol_in_tree(t):
             flags = []
@@ -20,6 +26,7 @@ class AMeta(type):
             return any(flags)
 
         def method_wrapper(method):
+            @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
                 orig_args = args.__copy__() if hasattr(args, '__copy__') else args
                 orig_kwargs = kwargs.copy()
@@ -37,7 +44,10 @@ class AMeta(type):
 
                 def map_leaves(x):
                     if isinstance(x, AColumn):
-                        self.add_acolumn(x)
+                        if name == 'AFrame':
+                            self.add_acolumn(x)
+                        elif name == 'AFrameGroupBy' and not x.name in self.obj.columns:
+                            self.obj.add_acolumn(x)
                         return x.name
                     else:
                         return x
@@ -60,9 +70,11 @@ class AMeta(type):
                     result = AFrame(result)
                 if isinstance(result, pd.core.groupby.generic.DataFrameGroupBy) and not isinstance(
                         result, AFrameGroupBy):
-                    # if isinstance(self, AFrame):
-                    #     self = pd.DataFrame(self)
-                    result = AFrameGroupBy(self, *args, **kwargs)
+                    if isinstance(self, AFrame):
+                        result = AFrameGroupBy(self, *args, **kwargs)
+                    elif isinstance(self, AFrameGroupBy) and method.__name__ == '__getitem__':
+                        result = AFrameGroupBy(self.obj, keys=self.keys, axis=self.axis, as_index=self.as_index,
+                                               selection=args[0], group_keys=self.group_keys, dropna=self.dropna)
 
                 return result
             return wrapper
@@ -80,6 +92,11 @@ class AMeta(type):
 
 
 class AFrame(pd.DataFrame, metaclass=AMeta):
+    """
+    AFrame is a subclass of pandas.DataFrame that allows to use AColumn objects as keys and calculate them on their
+    definition on the fly. All the keys are actually strings, but the AFrame modifies pd.DataFrame methods so
+    they handle the conversion to strings and possibly creating the columns internally.
+    """
     def __init__(self, *args, verbose=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.verbose = verbose
@@ -122,5 +139,6 @@ class AFrame(pd.DataFrame, metaclass=AMeta):
 
 
 class AFrameGroupBy(pd.core.groupby.generic.DataFrameGroupBy, metaclass=AMeta):
+    """AFrame objects support also groupby operations."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

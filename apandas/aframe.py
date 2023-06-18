@@ -17,6 +17,11 @@ class AMeta(type):
         aclass = super().__new__(mcs, name, bases, attrs)
         parent_class = bases[0]
 
+        # just for debugging
+        def _print(*args, **kwargs):
+            # print(*args, **kwargs)
+            return None
+
         def any_acol_in_tree(t):
             flags = []
             def acol_in_tree(t):
@@ -66,7 +71,10 @@ class AMeta(type):
                         kwargs = tree.map_structure(map_leaves, kwargs)
                         # print(f'Converting KWARGS: {orig_kwargs} --> {kwargs}')
 
-                # print(f'Calling {method.__name__} with args={args}, kwargs={kwargs}')
+                # if method.__name__ not in ['__len__', '__repr__', 'to_string', '__getattr__']:
+                #     print(f'Calling {method.__name__} on {self.__class__.__name__} with args={tuple(a.__repr__() for a in args)}, kwargs={kwargs}')
+                #     if self.__class__.__name__ == 'AFrame':
+                #         print('Here is the full frame\n', self)
                 result = method(self, *args, **kwargs)
                 if isinstance(result, pd.DataFrame) and not isinstance(result, AFrame):
                     # print(f'Converting pd.DataFrame {result} to an AFrame:')
@@ -77,28 +85,46 @@ class AMeta(type):
                         result = AFrameGroupBy(self, *args, **kwargs)
                     elif isinstance(self, AFrameGroupBy) and method.__name__ == '__getitem__':
                         result = AFrameGroupBy(self.obj, keys=self.keys, axis=self.axis, as_index=self.as_index,
-                                               selection=args[0], group_keys=self.group_keys, dropna=self.dropna)
+                                               selection=args[0], group_keys=self.group_keys, dropna=self.dropna,
+                                               grouper=self.grouper, exclusions=self.exclusions)
                 elif isinstance(result, pd.Series) and not isinstance(result, ASeries):
                     result = ASeries(result)
                 elif isinstance(result, pd.core.groupby.generic.SeriesGroupBy) and not isinstance(
                         result, ASeriesGroupBy):
                     if isinstance(self, ASeries):
                         result = ASeriesGroupBy(self, *args, **kwargs)
+                    elif isinstance(self, AFrameGroupBy) and method.__name__ == '__getitem__':
+                        result = ASeriesGroupBy(self.obj[args[0]], keys=self.keys, axis=self.axis,
+                                                as_index=self.as_index, selection=args[0], group_keys=self.group_keys,
+                                                dropna=self.dropna, grouper=self.grouper, exclusions=self.exclusions)
 
                 return result
             return wrapper
+
+        if name in ['ASeriesGroupBy', 'AFrameGroupBy']:
+            # for GroupBys, process also parent's parent
+            for attr_name, attr_value in parent_class.__bases__[0].__dict__.items():
+                if attr_name not in aclass.__dict__ and callable(attr_value):
+                    # if not attr_name.startswith('_') or (attr_name == '__getitem__' and name == 'AFrameGroupBy'):
+                    if not attr_name.startswith('_') or (attr_name.startswith('__') and attr_name.endswith('__')):
+                        _print(f'Wrapping the output for {attr_name} on {name} '
+                                  f'from {parent_class.__bases__[0].__name__}')
+                        setattr(aclass, attr_name, method_wrapper(attr_value, map_args=False))
+                    else:
+                        _print(f'Keeping for {attr_name} on {name} from {parent_class.__bases__[0].__name__}')
+                        setattr(aclass, attr_name, attr_value)
 
         for attr_name, attr_value in parent_class.__dict__.items():
             if attr_name not in aclass.__dict__ and callable(attr_value):
                 # if not attr_name.startswith('_') or (attr_name == '__getitem__' and name == 'AFrameGroupBy'):
                 if not attr_name.startswith('_') or attr_name in ['__getitem__', '__setitem__']:
-                    # print(f'Modifying {attr_name} on {name} from {parent_class.__name__}')
+                    _print(f'Modifying {attr_name} on {name} from {parent_class.__name__}')
                     setattr(aclass, attr_name, method_wrapper(attr_value))
                 elif attr_name.startswith('__') and attr_name.endswith('__'):
-                    # print(f'Wrapping the output for {attr_name} on {name} from {parent_class.__name__}')
+                    _print(f'Wrapping the output for {attr_name} on {name} from {parent_class.__name__}')
                     setattr(aclass, attr_name, method_wrapper(attr_value, map_args=False))
                 else:
-                    # print(f'Keeping for {attr_name} on {name} from {parent_class.__name__}')
+                    _print(f'Keeping for {attr_name} on {name} from {parent_class.__name__}')
                     setattr(aclass, attr_name, attr_value)
         return aclass
 
@@ -108,6 +134,10 @@ class ASeries(pd.Series, metaclass=AMeta):
     ASeries is a subclass of pd.Series that allows to use AColumn in renaming and returns AFrame when converted
     to a dataframe (for instance via `.reset_index` method).
     """
+    def to_pandas(self):
+        """ Unwrap to pd.Series. """
+        return pd.Series(self)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -151,6 +181,10 @@ class AFrame(pd.DataFrame, metaclass=AMeta):
                 print(f'Key "{acol}" not found in the AFrame, adding.')
             super().__setitem__(acol.name, acol.func(self))
             # self[acol] = acol.func(self)
+
+    def to_pandas(self):
+        """ Unwrap to pd.DataFrame. """
+        return pd.DataFrame(self)
 
     def __copy__(self, *args, **kwargs):
         """ Wrap the copied pd.DataFrame as AFrame. """

@@ -38,7 +38,7 @@ def test_string_keys(x_y_z_and_af):
     x, y, _, af = x_y_z_and_af
     # AFrame behaves correctly like a DataFrame with keys as strings
     af['foo'] = [10, 9, 8]
-    pd.testing.assert_series_equal(pd.Series(af['foo']), pd.Series([10, 9, 8], name='foo'))
+    pd.testing.assert_series_equal(af['foo'].to_pandas(), pd.Series([10, 9, 8], name='foo'))
 
 
 def test_calculation(x_y_z_and_af):
@@ -51,15 +51,15 @@ def test_calculation(x_y_z_and_af):
     z = AColumn('z', v - u)
 
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
-    pd.testing.assert_series_equal(pd.Series(af[u]), pd.Series([4, 5, 6], name='u'))
-    pd.testing.assert_series_equal(pd.Series(af[v]), pd.Series([3, 6, 9], name='v'))
-    pd.testing.assert_series_equal(pd.Series(af[z]), pd.Series([-1, 1, 3], name='z'))
+    pd.testing.assert_series_equal(af[u].to_pandas(), pd.Series([4, 5, 6], name='u'))
+    pd.testing.assert_series_equal(af[v].to_pandas(), pd.Series([3, 6, 9], name='v'))
+    pd.testing.assert_series_equal(af[z].to_pandas(), pd.Series([-1, 1, 3], name='z'))
 
     # you even do not need to create the intermediate columns, you can just ask for the final ones
     af = AFrame()
     af[x] = [1, 2, 3]
     af[y] = [3, 3, 3]
-    pd.testing.assert_series_equal(pd.Series(af[z]), pd.Series([-1, 1, 3], name='z'))
+    pd.testing.assert_series_equal(af[z].to_pandas(), pd.Series([-1, 1, 3], name='z'))
 
 
 def test_getitem_iterable(x_y_z_and_af):
@@ -70,13 +70,13 @@ def test_getitem_iterable(x_y_z_and_af):
     v = AColumn('v', x * y)
 
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
+    assert isinstance(af[[u, v]], AFrame)
     pd.testing.assert_frame_equal(af[[u, v]], pd.DataFrame({'u': [4, 5, 6], 'v': [3, 6, 9]}))
-    # pd.testing.assert_frame_equal(af[[u, v]], af[['u', 'v']])
 
 
 def test_operator_priorities(x_y_z_and_af):
     x, y, z, af = x_y_z_and_af
-    pd.testing.assert_series_equal(pd.Series(af[z]), pd.Series([6, 12, 18], name='z'))
+    pd.testing.assert_series_equal(af[z].to_pandas(), pd.Series([6, 12, 18], name='z'))
 
 
 def test_drop_columns(x_y_z_and_af):
@@ -105,6 +105,9 @@ def test_rename_columns(x_y_z_and_af):
     # and new cols are equal to the original series (up to names)
     pd.testing.assert_series_equal(new_af['a'], af['x'].rename('a'))
     pd.testing.assert_series_equal(new_af['b'], af['z'].rename('b'))
+    # and new cols are ASeries
+    assert isinstance(new_af['a'], ASeries)
+    assert isinstance(af['x'].rename('a'), ASeries)
 
 
 def test_preserve_aframe(x_y_z_and_af):
@@ -123,21 +126,25 @@ def test_groupby(x_y_z_and_af):
     x, y, z, af = x_y_z_and_af
 
     # result of pandas operations and apandas has to be identical
-    df = pd.DataFrame(af)
+    df = af.to_pandas()
+    assert isinstance(df, pd.DataFrame)
     pd_res = df.groupby('x').sum()
     apd_res = af.groupby(x).sum()
-    pd.testing.assert_frame_equal(pd_res, apd_res)
+    assert isinstance(apd_res, AFrame)
+    pd.testing.assert_frame_equal(pd_res, apd_res.to_pandas())
 
     # can also apply the operation a selected column
     pd_res = df.groupby('x')['y'].sum()
     apd_res = af.groupby(x)[y].sum()
-    pd.testing.assert_series_equal(pd_res, apd_res)
+    assert isinstance(apd_res, ASeries)
+    pd.testing.assert_series_equal(pd_res, apd_res.to_pandas())
 
     # can construct the missing columns on the fly even in groupby
     apd_res = af.groupby(x)[[y, z]].sum()
     df['z'] = 2 * df['x'] * df['y']
     pd_res = df.groupby('x')[['y', 'z']].sum()
-    pd.testing.assert_frame_equal(pd_res, apd_res)
+    assert isinstance(apd_res, AFrame)
+    pd.testing.assert_frame_equal(pd_res, apd_res.to_pandas())
 
 
 def test_series(x_y_z_and_af):
@@ -159,7 +166,5 @@ def test_series(x_y_z_and_af):
     # ASeries can be copied correctly.
     xs_copied = xs.copy()
     assert isinstance(xs_copied, ASeries)
-    pd.testing.assert_series_equal(pd.Series(xs), pd.Series(xs_copied))
+    pd.testing.assert_series_equal(xs.to_pandas(), xs_copied.to_pandas())
 
-    type(xs)
-    type(xs_copied)

@@ -122,7 +122,7 @@ class AFrame(pd.DataFrame, metaclass=AMeta):
     def __setitem__(self, key, value):
         if isinstance(key, AColumn):
             key = str(key)
-        elif isinstance(key, Iterable):
+        elif (not isinstance(key, str)) and isinstance(key, Iterable):
             key = [str(k) if isinstance(key, AColumn) else k for k in key]
         return super().__setitem__(key, value)
 

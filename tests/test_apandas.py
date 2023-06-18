@@ -35,6 +35,13 @@ def test_types(x_y_z_and_af):
     assert all(af.columns == ['x', 'y'])
 
 
+def test_string_keys(x_y_z_and_af):
+    x, y, _, af = x_y_z_and_af
+    # AFrame behaves correctly like a DataFrame with keys as strings
+    af['foo'] = [10, 9, 8]
+    pd.testing.assert_series_equal(af['foo'], pd.Series([10, 9, 8], name='foo'))
+
+
 def test_calculation(x_y_z_and_af):
     # define columns you will add to the dataframe in the beginning
     x, y, _, af = x_y_z_and_af

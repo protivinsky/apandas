@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from apandas import AFrame, AColumn
+from apandas import AFrame, ASeries, AColumn
 
 
 def test_initialization():
@@ -38,7 +38,7 @@ def test_string_keys(x_y_z_and_af):
     x, y, _, af = x_y_z_and_af
     # AFrame behaves correctly like a DataFrame with keys as strings
     af['foo'] = [10, 9, 8]
-    pd.testing.assert_series_equal(af['foo'], pd.Series([10, 9, 8], name='foo'))
+    pd.testing.assert_series_equal(pd.Series(af['foo']), pd.Series([10, 9, 8], name='foo'))
 
 
 def test_calculation(x_y_z_and_af):
@@ -51,15 +51,15 @@ def test_calculation(x_y_z_and_af):
     z = AColumn('z', v - u)
 
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
-    pd.testing.assert_series_equal(af[u], pd.Series([4, 5, 6], name='u'))
-    pd.testing.assert_series_equal(af[v], pd.Series([3, 6, 9], name='v'))
-    pd.testing.assert_series_equal(af[z], pd.Series([-1, 1, 3], name='z'))
+    pd.testing.assert_series_equal(pd.Series(af[u]), pd.Series([4, 5, 6], name='u'))
+    pd.testing.assert_series_equal(pd.Series(af[v]), pd.Series([3, 6, 9], name='v'))
+    pd.testing.assert_series_equal(pd.Series(af[z]), pd.Series([-1, 1, 3], name='z'))
 
     # you even do not need to create the intermediate columns, you can just ask for the final ones
     af = AFrame()
     af[x] = [1, 2, 3]
     af[y] = [3, 3, 3]
-    pd.testing.assert_series_equal(af[z], pd.Series([-1, 1, 3], name='z'))
+    pd.testing.assert_series_equal(pd.Series(af[z]), pd.Series([-1, 1, 3], name='z'))
 
 
 def test_getitem_iterable(x_y_z_and_af):
@@ -76,7 +76,7 @@ def test_getitem_iterable(x_y_z_and_af):
 
 def test_operator_priorities(x_y_z_and_af):
     x, y, z, af = x_y_z_and_af
-    pd.testing.assert_series_equal(af[z], pd.Series([6, 12, 18], name='z'))
+    pd.testing.assert_series_equal(pd.Series(af[z]), pd.Series([6, 12, 18], name='z'))
 
 
 def test_drop_columns(x_y_z_and_af):
@@ -138,3 +138,28 @@ def test_groupby(x_y_z_and_af):
     df['z'] = 2 * df['x'] * df['y']
     pd_res = df.groupby('x')[['y', 'z']].sum()
     pd.testing.assert_frame_equal(pd_res, apd_res)
+
+
+def test_series(x_y_z_and_af):
+    x, y, u, af = x_y_z_and_af
+
+    xs = af[x]
+    # returns an ASeries
+    assert isinstance(xs, ASeries)
+
+    # conversions Series -> DataFrame returns AFrame
+    assert isinstance(xs.reset_index(), AFrame)
+
+    # series can be renamed via rename or name and the result has a string key
+    u = AColumn('u')
+    us = xs.rename(u)
+    xs.rename('u')
+    assert us.name == 'u'
+
+    # ASeries can be copied correctly.
+    xs_copied = xs.copy()
+    assert isinstance(xs_copied, ASeries)
+    pd.testing.assert_series_equal(pd.Series(xs), pd.Series(xs_copied))
+
+    type(xs)
+    type(xs_copied)

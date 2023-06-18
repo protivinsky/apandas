@@ -11,7 +11,6 @@
 
 import os
 import sys
-import tree
 sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
@@ -21,7 +20,7 @@ from apandas import AFunction, AColumn, AFrame
 project = 'APandas'
 copyright = '2023, Tomas Protivinsky'
 author = 'Tomas Protivinsky'
-release = '0.0.1'
+release = '0.0.5'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

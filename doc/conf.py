@@ -15,12 +15,12 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-from apandas import AFunction, AColumn, AFrame
+from apandas import __version__, __author__
 
 project = 'APandas'
 copyright = '2023, Tomas Protivinsky'
-author = 'Tomas Protivinsky'
-release = '0.0.5'
+author = __author__
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

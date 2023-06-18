@@ -45,3 +45,6 @@ class AColumn(AFunction):
 
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return f"AColumn['{self.name}']"

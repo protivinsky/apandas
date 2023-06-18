@@ -115,21 +115,20 @@ def test_preserve_aframe(x_y_z_and_af):
 
 def test_groupby(x_y_z_and_af):
     x, y, z, af = x_y_z_and_af
-    # af.add_acolumn(z)
 
     # result of pandas operations and apandas has to be identical
     df = pd.DataFrame(af)
+    pd_res = df.groupby('x').sum()
+    apd_res = af.groupby(x).sum()
+    pd.testing.assert_frame_equal(pd_res, apd_res)
+
+    # can also apply the operation a selected column
     pd_res = df.groupby('x')['y'].sum()
     apd_res = af.groupby(x)[y].sum()
     pd.testing.assert_series_equal(pd_res, apd_res)
 
-
-
-    df
-
-    dfg = pd.core.groupby.generic.DataFrameGroupBy
-
-
-
-
-
+    # can construct the missing columns on the fly even in groupby
+    apd_res = af.groupby(x)[[y, z]].sum()
+    df['z'] = 2 * df['x'] * df['y']
+    pd_res = df.groupby('x')[['y', 'z']].sum()
+    pd.testing.assert_frame_equal(pd_res, apd_res)

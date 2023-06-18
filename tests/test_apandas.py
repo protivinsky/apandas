@@ -1,7 +1,6 @@
 import pytest
 import pandas as pd
 from apandas import AFrame, AColumn
-from apandas.aframe import AFrameGroupBy
 
 
 def test_initialization():

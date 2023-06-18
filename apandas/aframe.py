@@ -85,10 +85,10 @@ class AMeta(type):
             if attr_name not in aclass.__dict__ and callable(attr_value):
                 # if not attr_name.startswith('_') or (attr_name == '__getitem__' and name == 'AFrameGroupBy'):
                 if not attr_name.startswith('_') or attr_name in ['__getitem__', '__setitem__']:
-                    print(f'Modifying {attr_name} on {name} from {parent_class.__name__}')
+                    # print(f'Modifying {attr_name} on {name} from {parent_class.__name__}')
                     setattr(aclass, attr_name, method_wrapper(attr_value))
                 else:
-                    print(f'Keeping {attr_name} on {name} from {parent_class.__name__}')
+                    # print(f'Keeping {attr_name} on {name} from {parent_class.__name__}')
                     setattr(aclass, attr_name, attr_value)
 
 

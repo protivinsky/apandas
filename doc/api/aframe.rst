@@ -2,5 +2,5 @@ AFrame
 ======
 
 .. autoclass:: apandas.AFrame
-   :members: __init__, __getitem__, __setitem__, add_column, copy
+   :members: __init__, add_column
    :undoc-members:

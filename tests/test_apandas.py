@@ -115,7 +115,7 @@ def test_preserve_aframe(x_y_z_and_af):
     # basic operations (copy, rename, drop, access) should preserve the AFrame
     assert isinstance(af, AFrame)
     assert isinstance(af.copy(), AFrame)
-    assert isinstance(af[x, z], AFrame)
+    assert isinstance(af[[x, z]], AFrame)
     assert isinstance(af.drop(columns=x), AFrame)
     assert isinstance(af.rename(columns={x: 'a'}), AFrame)
 

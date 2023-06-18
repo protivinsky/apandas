@@ -36,18 +36,20 @@ class AMeta(type):
                         keys = list(mapping.keys())
                         for key in keys:
                             if isinstance(key, AColumn):
-                                if name == 'AFrame':
-                                    self.add_acolumn(key)
-                                elif name == 'AFrameGroupBy' and not key.name in self.obj.columns:
+                                if method.__name__ != '__setitem__':
+                                    if name == 'AFrame':
+                                        self.add_acolumn(key)
+                                    elif name == 'AFrameGroupBy' and not key.name in self.obj.columns:
                                         self.obj.add_acolumn(key)
                                 mapping[key.name] = mapping.pop(key)
 
                 def map_leaves(x):
                     if isinstance(x, AColumn):
-                        if name == 'AFrame':
-                            self.add_acolumn(x)
-                        elif name == 'AFrameGroupBy' and not x.name in self.obj.columns:
-                            self.obj.add_acolumn(x)
+                        if method.__name__ != '__setitem__':
+                            if name == 'AFrame':
+                                self.add_acolumn(x)
+                            elif name == 'AFrameGroupBy' and not x.name in self.obj.columns:
+                                self.obj.add_acolumn(x)
                         return x.name
                     else:
                         return x
@@ -81,12 +83,14 @@ class AMeta(type):
 
         for attr_name, attr_value in parent_class.__dict__.items():
             if attr_name not in aclass.__dict__ and callable(attr_value):
-                if not attr_name.startswith('_') or (attr_name == '__getitem__' and name == 'AFrameGroupBy'):
-                    # print(f'Modifying {attr_name} on {name} from {parent_class.__name__}')
+                # if not attr_name.startswith('_') or (attr_name == '__getitem__' and name == 'AFrameGroupBy'):
+                if not attr_name.startswith('_') or attr_name in ['__getitem__', '__setitem__']:
+                    print(f'Modifying {attr_name} on {name} from {parent_class.__name__}')
                     setattr(aclass, attr_name, method_wrapper(attr_value))
                 else:
-                    # print(f'Keeping {attr_name} on {name} from {parent_class.__name__}')
+                    print(f'Keeping {attr_name} on {name} from {parent_class.__name__}')
                     setattr(aclass, attr_name, attr_value)
+
 
         return aclass
 
@@ -96,35 +100,14 @@ class AFrame(pd.DataFrame, metaclass=AMeta):
     AFrame is a subclass of pandas.DataFrame that allows to use AColumn objects as keys and calculate them on their
     definition on the fly. All the keys are actually strings, but the AFrame modifies pd.DataFrame methods so
     they handle the conversion to strings and possibly creating the columns internally.
+
+    So most of pd.DataFrame methods are actually modified via the metaclass - in particular, AColumns in *args and
+    **kwargs of method calls are converted to strings and the columns are created if they don't exist. In addition,
+    if the return is a pd.DataFrame, it is converted to AFrame.
     """
     def __init__(self, *args, verbose=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.verbose = verbose
-
-    def __getitem__(self, key):
-        if isinstance(key, AColumn):
-            if not key.name in self.columns:
-                self.add_acolumn(key)
-            return super().__getitem__(str(key))
-        elif (not isinstance(key, str)) and isinstance(key, Iterable):
-            orig_key = key
-            key = []
-            for k in orig_key:
-                if isinstance(k, AColumn):
-                    if not k.name in self.columns:
-                        self.add_acolumn(k)
-                    key.append(str(k))
-                else:
-                    key.append(k)
-            return AFrame(super().__getitem__(key))
-        return super().__getitem__(key)
-
-    def __setitem__(self, key, value):
-        if isinstance(key, AColumn):
-            key = str(key)
-        elif (not isinstance(key, str)) and isinstance(key, Iterable):
-            key = [str(k) if isinstance(key, AColumn) else k for k in key]
-        return super().__setitem__(key, value)
 
     def add_acolumn(self, acol: AColumn):
         """ Generate `acol AColumn` in the `AFrame`. """
@@ -134,8 +117,16 @@ class AFrame(pd.DataFrame, metaclass=AMeta):
             super().__setitem__(acol.name, acol.func(self))
             # self[acol] = acol.func(self)
 
+    def __copy__(self, *args, **kwargs):
+        """ Wrap the copied pd.DataFrame as AFrame. """
+        return AFrame(super().__copy__(*args, **kwargs))
+
+    def __deepcopy__(self, *args, **kwargs):
+        """ Wrap the deepcopied pd.DataFrame as AFrame. """
+        return AFrame(super().__deepcopy__(*args, **kwargs))
+
     def copy(self, *args, **kwargs):
-        return AFrame(super().copy(*args, *kwargs))
+        return AFrame(super().copy(*args, **kwargs))
 
 
 class AFrameGroupBy(pd.core.groupby.generic.DataFrameGroupBy, metaclass=AMeta):

@@ -148,7 +148,7 @@ def test_groupby(x_y_z_and_af):
 
 
 def test_series(x_y_z_and_af):
-    x, y, u, af = x_y_z_and_af
+    x, y, z, af = x_y_z_and_af
 
     xs = af[x]
     # returns an ASeries
@@ -168,3 +168,13 @@ def test_series(x_y_z_and_af):
     assert isinstance(xs_copied, ASeries)
     pd.testing.assert_series_equal(xs.to_pandas(), xs_copied.to_pandas())
 
+
+def test_series_groupby(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
+    i = AColumn(name='i', func=AColumn('index'))
+    af_big = AFrame(pd.concat([af, af + 5]).reset_index())
+    # again, everything should be just calculated on the fly
+    res = af_big.groupby(i)[z].agg(['min', 'max'])
+    assert isinstance(res, AFrame)
+    pd.testing.assert_frame_equal(res.to_pandas(), pd.DataFrame(
+        {'min': [6, 12, 18], 'max': [96, 112, 128]}, index=pd.Series([0, 1, 2], name='i')))

@@ -42,19 +42,19 @@ class AMeta(type):
                             keys = list(mapping.keys())
                             for key in keys:
                                 if isinstance(key, AColumn):
-                                    if method.__name__ != '__setitem__':
+                                    if method.__name__ != '__setitem__' and key.func is not None:
                                         if name == 'AFrame':
                                             self.add_acolumn(key)
-                                        elif name == 'AFrameGroupBy' and not key.name in self.obj.columns:
+                                        elif name == 'AFrameGroupBy':
                                             self.obj.add_acolumn(key)
                                     mapping[key.name] = mapping.pop(key)
 
                     def map_leaves(x):
                         if isinstance(x, AColumn):
-                            if method.__name__ != '__setitem__':
+                            if method.__name__ != '__setitem__' and x.func is not None:
                                 if name == 'AFrame':
                                     self.add_acolumn(x)
-                                elif name == 'AFrameGroupBy' and not x.name in self.obj.columns:
+                                elif name == 'AFrameGroupBy':
                                     self.obj.add_acolumn(x)
                             return x.name
                         else:
@@ -180,7 +180,6 @@ class AFrame(pd.DataFrame, metaclass=AMeta):
             if self.verbose:
                 print(f'Key "{acol}" not found in the AFrame, adding.')
             super().__setitem__(acol.name, acol.func(self))
-            # self[acol] = acol.func(self)
 
     def to_pandas(self):
         """ Unwrap to pd.DataFrame. """

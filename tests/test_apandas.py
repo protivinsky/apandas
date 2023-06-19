@@ -71,7 +71,7 @@ def test_getitem_iterable(x_y_z_and_af):
 
     # if you just access the custom defined analytics, they are created on the fly and named with the given names
     assert isinstance(af[[u, v]], AFrame)
-    pd.testing.assert_frame_equal(af[[u, v]], pd.DataFrame({'u': [4, 5, 6], 'v': [3, 6, 9]}))
+    pd.testing.assert_frame_equal(af[[u, v]].to_pandas(), pd.DataFrame({'u': [4, 5, 6], 'v': [3, 6, 9]}))
 
 
 def test_operator_priorities(x_y_z_and_af):
@@ -122,6 +122,27 @@ def test_preserve_aframe(x_y_z_and_af):
     assert isinstance(af.rename(columns={x: 'a'}), AFrame)
 
 
+def test_series(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
+    xs = af[x]
+    # returns an ASeries
+    assert isinstance(xs, ASeries)
+
+    # conversions Series -> DataFrame returns AFrame
+    assert isinstance(xs.reset_index(), AFrame)
+
+    # series can be renamed via rename or name and the result has a string key
+    u = AColumn('u')
+    us = xs.rename(u)
+    xs.rename('u')
+    assert us.name == 'u'
+
+    # ASeries can be copied correctly.
+    xs_copied = xs.copy()
+    assert isinstance(xs_copied, ASeries)
+    pd.testing.assert_series_equal(xs.to_pandas(), xs_copied.to_pandas())
+
+
 def test_groupby(x_y_z_and_af):
     x, y, z, af = x_y_z_and_af
 
@@ -147,26 +168,61 @@ def test_groupby(x_y_z_and_af):
     pd.testing.assert_frame_equal(pd_res, apd_res.to_pandas())
 
 
-def test_series(x_y_z_and_af):
+def test_groupby_apply(x_y_z_and_af):
+    # for AFrameGroupBy
     x, y, z, af = x_y_z_and_af
+    i = AColumn(name='i', func=AColumn('index'))
+    af_big1 = AFrame(pd.concat([af, af + 5]).reset_index())
+    af_big2 = af_big1.copy()
+    af_big3 = af_big1.copy()
+    af_big4 = af_big1.copy()
 
-    xs = af[x]
-    # returns an ASeries
-    assert isinstance(xs, ASeries)
+    # === compare .sum, .agg and .app ===
 
-    # conversions Series -> DataFrame returns AFrame
-    assert isinstance(xs.reset_index(), AFrame)
+    # .sum()
+    res_sum = af_big1.groupby(i).sum()
+    pd_res_sum = af_big1.to_pandas().groupby('i').sum()
+    res_sum_z = af_big1.groupby(i)[[x, z]].sum()
+    pd_res_sum_z = af_big1.to_pandas().groupby('i')[['x', 'z']].sum()
+    assert isinstance(res_sum, AFrame)
+    assert isinstance(res_sum_z, AFrame)
+    pd.testing.assert_frame_equal(res_sum.to_pandas(), pd_res_sum)
+    pd.testing.assert_frame_equal(res_sum_z.to_pandas(), pd_res_sum_z)
 
-    # series can be renamed via rename or name and the result has a string key
-    u = AColumn('u')
-    us = xs.rename(u)
-    xs.rename('u')
-    assert us.name == 'u'
+    # .agg()
+    res_agg = af_big2.groupby(i).agg('sum')
+    pd_res_agg = af_big2.to_pandas().groupby('i').agg('sum')
+    res_agg_z = af_big2.groupby(i)[[x, z]].agg('sum')
+    pd_res_agg_z = af_big2.to_pandas().groupby('i')[['x', 'z']].agg('sum')
+    assert isinstance(res_agg, AFrame)
+    assert isinstance(res_agg_z, AFrame)
+    pd.testing.assert_frame_equal(res_agg.to_pandas(), pd_res_agg)
+    pd.testing.assert_frame_equal(res_agg_z.to_pandas(), pd_res_agg_z)
 
-    # ASeries can be copied correctly.
-    xs_copied = xs.copy()
-    assert isinstance(xs_copied, ASeries)
-    pd.testing.assert_series_equal(xs.to_pandas(), xs_copied.to_pandas())
+    # .apply()
+    res_apply = af_big3.groupby(i).apply(lambda df: df.sum())
+    pd_res_apply = af_big3.to_pandas().groupby('i').apply(lambda df: df.sum())
+    res_apply_z = af_big3.groupby(i)[[x, z]].apply(lambda df: df.sum())
+    pd_res_apply_z = af_big3.to_pandas().groupby('i')[['x', 'z']].apply(lambda df: df.sum())
+    assert isinstance(res_apply, AFrame)
+    assert isinstance(res_apply_z, AFrame)
+    pd.testing.assert_frame_equal(res_apply.to_pandas(), pd_res_apply)
+    pd.testing.assert_frame_equal(res_apply_z.to_pandas(), pd_res_apply_z)
+
+    # .apply() with a function that access the columns
+    res_apply = af_big4.groupby(i).apply(lambda df: df[x].sum())
+    pd_res_apply = af_big4.to_pandas().groupby('i').apply(lambda df: df['x'].sum())
+    assert isinstance(res_apply, ASeries)
+    pd.testing.assert_series_equal(res_apply.to_pandas(), pd_res_apply)
+
+    # .apply() and variable construction within the lambda
+    af_big = AFrame(pd.concat([af, af + 5]).reset_index())
+    res_apply = af_big.groupby(i).apply(lambda df: df[[x, z]].sum())
+    # lambda cannot add the variable to the original frame, add it manually
+    af_big.add_acolumn(z)
+    pd_res_apply = af_big.to_pandas().groupby('i').apply(lambda df: df[['x', 'z']].sum())
+    assert isinstance(res_apply, AFrame)
+    pd.testing.assert_frame_equal(res_apply.to_pandas(), pd_res_apply)
 
 
 def test_series_groupby(x_y_z_and_af):
@@ -178,3 +234,52 @@ def test_series_groupby(x_y_z_and_af):
     assert isinstance(res, AFrame)
     pd.testing.assert_frame_equal(res.to_pandas(), pd.DataFrame(
         {'min': [6, 12, 18], 'max': [96, 112, 128]}, index=pd.Series([0, 1, 2], name='i')))
+
+
+def test_groupby_series_apply(x_y_z_and_af):
+    x, y, z, af = x_y_z_and_af
+    i = AColumn(name='i', func=AColumn('index'))
+    af_big1 = AFrame(pd.concat([af, af + 5]).reset_index())
+    af_big2 = af_big1.copy()
+    af_big3 = af_big1.copy()
+    af_big4 = af_big1.copy()
+
+    # res_apply_z_in = af_big4.groupby(i).apply(lambda df: df[[x, z]].sum())
+
+    # for ASeriesGroupBy
+    af_big1 = AFrame(pd.concat([af, af + 5]).reset_index())
+    af_big2 = af_big1.copy()
+    af_big3 = af_big1.copy()
+    af_big4 = af_big1.copy()
+
+    # === compare .sum, .agg and .app ===
+    # .sum()
+    res_sum_y = af_big1.groupby(i)[y].sum()
+    pd_res_sum_y = af_big1.to_pandas().groupby('i')['y'].sum()
+    res_sum_z = af_big1.groupby(i)[z].sum()
+    pd_res_sum_z = af_big1.to_pandas().groupby('i')['z'].sum()
+    assert isinstance(res_sum_y, ASeries)
+    assert isinstance(res_sum_z, ASeries)
+    pd.testing.assert_series_equal(res_sum_y.to_pandas(), pd_res_sum_y)
+    pd.testing.assert_series_equal(res_sum_z.to_pandas(), pd_res_sum_z)
+    # .agg()
+    res_agg_y = af_big2.groupby(i)[y].agg('sum')
+    pd_res_agg_y = af_big2.to_pandas().groupby('i')['y'].agg('sum')
+    res_agg_z = af_big2.groupby(i)[z].agg('sum')
+    pd_res_agg_z = af_big2.to_pandas().groupby('i')['z'].agg('sum')
+    assert isinstance(res_agg_y, ASeries)
+    assert isinstance(res_agg_z, ASeries)
+    pd.testing.assert_series_equal(res_agg_y.to_pandas(), pd_res_agg_y)
+    pd.testing.assert_series_equal(res_agg_z.to_pandas(), pd_res_agg_z)
+    # .apply()
+    res_apply_y = af_big3.groupby(i)[y].apply(lambda df: df.sum())
+    pd_res_apply_y = af_big3.to_pandas().groupby('i')['y'].apply(lambda df: df.sum())
+    res_apply_z = af_big3.groupby(i)[z].apply(lambda df: df.sum())
+    pd_res_apply_z = af_big3.to_pandas().groupby('i')['z'].apply(lambda df: df.sum())
+    assert isinstance(res_apply_y, ASeries)
+    assert isinstance(res_apply_z, ASeries)
+
+    # af_big1.apply(lambda ff: ff.sum())
+    # res_apply = af_big3.groupby(i).apply(lambda df: df.sum())
+
+

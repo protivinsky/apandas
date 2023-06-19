@@ -10,9 +10,6 @@
     :alt: doc
     :target: https://protivinsky.github.io/apandas/index.html
 
-APandas: Lightweight wrapper to support custom analytics in Pandas
-==================================================================
-
 - Allows for separation between analytic definition and its calculation in the dataframe.
 - The analytic definitions are composable.
 - If analytic columns have not yet been added, they are calculated on-the-fly (including their dependencies if needed).

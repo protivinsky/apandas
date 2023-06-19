@@ -1,16 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-A lightweight wrapper to support custom analytics in Pandas.
+|pytest-badge| |doc-badge|
 
-- Allows for separation of the definition of the analytic calculation and its application. Composed analytics are
-  supported.
-- If other analytics are needed, they are calculated on-the-fly based on their definitions.
-- Dataframe columns can be accessed directly by column variables (hence allowing for at least some intellisense).
+..  |pytest-badge| image:: https://github.com/protivinsky/apandas/actions/workflows/pytest.yaml/badge.svg
+    :alt: pytest
+
+..  |doc-badge| image:: https://github.com/protivinsky/apandas/actions/workflows/builddoc.yaml/badge.svg
+    :alt: doc
+    :target: https://protivinsky.github.io/apandas/index.html
+
+APandas: Lightweight wrapper to support custom analytics in Pandas
+==================================================================
+
+- Allows for separation between analytic definition and its calculation in the dataframe.
+- The analytic definitions are composable.
+- If analytic columns have not yet been added, they are calculated on-the-fly (including their dependencies if needed).
+- Accessed directly by analytic instances (to leverage intellisense support).
 
 At the moment, only basic arithmetic operations are supported - this is mostly a proof of concept. It should be
 easy to add support for other operations or for numpy universal functions. Most complicated functions can be
-passed in as lambdas.
+passed in as lambdas or defined as functions.
 
 Basic example
 -------------
@@ -35,6 +45,15 @@ Basic example
 
     # now you can just access the final analytic or use it in computation - everything will be created on the fly
     af[z]  # there is [-1, 1, 3] and the columns is named 'z'
+
+Installation
+------------
+
+At the moment, the library is available only on test.pypi.org until it gets more stable. To install it, run:
+
+.. code:: bash
+
+    pip install -i https://test.pypi.org/simple/ apandas
 
 """
 

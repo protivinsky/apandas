@@ -2,6 +2,7 @@ import functools
 from typing import Iterable
 import pandas as pd
 import tree
+
 from .acolumn import AColumn
 
 
@@ -73,8 +74,9 @@ class AMeta(type):
 
                 # if method.__name__ not in ['__len__', '__repr__', 'to_string', '__getattr__']:
                 #     print(f'Calling {method.__name__} on {self.__class__.__name__} with args={tuple(a.__repr__() for a in args)}, kwargs={kwargs}')
-                #     if self.__class__.__name__ == 'AFrame':
-                #         print('Here is the full frame\n', self)
+                #     # if self.__class__.__name__ == 'AFrame':
+                #     #     print('Here is the full frame\n', self)
+
                 result = method(self, *args, **kwargs)
                 if isinstance(result, pd.DataFrame) and not isinstance(result, AFrame):
                     # print(f'Converting pd.DataFrame {result} to an AFrame:')
@@ -94,9 +96,9 @@ class AMeta(type):
                     if isinstance(self, ASeries):
                         result = ASeriesGroupBy(self, *args, **kwargs)
                     elif isinstance(self, AFrameGroupBy) and method.__name__ == '__getitem__':
-                        result = ASeriesGroupBy(self.obj[args[0]], keys=self.keys, axis=self.axis,
-                                                as_index=self.as_index, selection=args[0], group_keys=self.group_keys,
-                                                dropna=self.dropna, grouper=self.grouper, exclusions=self.exclusions)
+                        # Series groupby does not use some properties and have not to be propagated
+                        result = ASeriesGroupBy(self.obj[args[0]], selection=args[0], dropna=self.dropna,
+                                                keys=None, grouper=self.grouper)
 
                 return result
             return wrapper

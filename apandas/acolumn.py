@@ -6,7 +6,8 @@ import operator
 class AFunction:
     """ Represents any function that can be applied to an AFrame / pd.DataFrame. """
     def __init__(self, func):
-        self.func = func
+        # If func is an AFunction, we can unwrap (if .func is defined - not the case for some AColumns)
+        self.func = func.func if isinstance(func, AFunction) and func.func is not None else func
 
     def from_frame(self, af):
         return self.func(af)

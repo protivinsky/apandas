@@ -45,6 +45,8 @@ Basic example
     # now you can just access the final analytic or use it in computation - everything will be created on the fly
     af[z]  # there is [-1, 1, 3] and the columns is named 'z'
 
+See the tests for more advanced examples.
+
 Installation
 ------------
 

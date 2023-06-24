@@ -120,3 +120,8 @@ def test_advanced_function(x_y_and_af):
     y_filtered_diff = ANamedFunction('y_filtered_diff', lambda af: af[x % 2 == 0][y.diff()])
     pd.testing.assert_series_equal(af[y_filtered_diff], ASeries([np.nan, -2, -2], name='y_filtered_diff'),
                                    check_index=False)
+    two = AColumn('two', 2)
+    z = AColumn('z', x // two, override=True)
+    magic = ANamedFunction('magic', lambda af: af.set_index(x, drop=False)[z % 2 != 0][x.diff()].rename(
+        'x_diff').reset_index())
+    af[magic]

@@ -35,10 +35,11 @@ class AMeta(type):
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
                 # to support access to AFunction - sort of a hack...
+                # should I also support access for iterables of ANamedFunctions?
                 if name == 'AFrame' and method.__name__ == '__getitem__' and not kwargs and len(args) == 1 \
                         and not isinstance(args[0], AColumn) and isinstance(args[0], AFunction):
                     result = args[0](self)
-                    if result.dtype == 'bool':
+                    if isinstance(result, pd.Series) and result.dtype == 'bool':
                         # for easy filtering -- aligned with pandas ability to filter by lambdas
                         result = self[result]
 

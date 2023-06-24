@@ -1,13 +1,70 @@
 from __future__ import annotations
-from typing import Optional, Union, Any
+
+import functools
+from typing import Optional, Callable, Union, Any
 import operator
+import pandas as pd
 
 
+def _arithmetic_delegate(cls):
+    """
+    A list of operators and pandas.Series methods that are leveraged to work correctly in on AFunctions
+    (and AColumns) - the operators and methods are applied to the underlying pd.Series after the lookup
+    of the AFunction (or AColumn) in the AFrame (and possibly after the application of other calculations).
+    """
+    operators = {
+        '__add__': operator.add,
+        '__sub__': operator.sub,
+        '__mul__': operator.mul,
+        '__truediv__': operator.truediv,
+        '__floordiv__': operator.floordiv,
+        '__mod__': operator.mod,
+        '__pow__': operator.pow,
+        '__matmul__': operator.matmul,
+        '__and__': operator.and_,
+        '__or__': operator.or_,
+        '__lt__': operator.lt,
+        '__gt__': operator.gt,
+        '__le__': operator.le,
+        '__ge__': operator.ge,
+        '__eq__': operator.eq,
+        '__ne__': operator.ne,
+        '__abs__': operator.abs,
+    }
+
+    pd_series_methods = [
+        'diff',
+        'round',
+        'fillna',
+        'replace',
+        'cumsum',
+        'cumprod',
+    ]
+
+    for name, op in operators.items():
+        # need to deal with Python late binding correctly
+        setattr(cls, name, lambda *args, _func=op, **kwargs: cls.function_wrapper(_func, *args, **kwargs))
+
+    for name in pd_series_methods:
+        if not hasattr(cls, name):
+            setattr(cls, name, lambda *args, _func=getattr(pd.Series, name), **kwargs: cls.function_wrapper(
+                _func, *args, **kwargs))
+
+    return cls
+
+
+@_arithmetic_delegate
 class AFunction:
     """ Represents any function that can be applied to an AFrame / pd.DataFrame. """
-    def __init__(self, func):
-        # If func is an AFunction, we can unwrap (if .func is defined - not the case for some AColumns)
-        self.func = func.func if isinstance(func, AFunction) and func.func is not None else func
+    def __init__(self, func: Union[Callable, Any]):
+        # If func is not callable, treat it as a content to fill in.
+        # Or do I want to provide a specific static function such as AFunction.content?
+        if not callable(func) and func is not None:  # scalar or iterable content
+            self.func = lambda _: func
+        elif isinstance(func, AFunction) and func.func is not None:  # unwrap AFunction, to avoid unnecessary nesting
+            self.func = func.func
+        else:
+            self.func = func
 
     def from_frame(self, af):
         return self.func(af)
@@ -15,56 +72,50 @@ class AFunction:
     def __call__(self, af):
         return self.from_frame(af)
 
-    def __add__(self, other):
-        # this can be done differently, in metaclass or otherwise
-        return AFunction.apply_operator(operator.add, self, other)
-
-    def __sub__(self, other):
-        return AFunction.apply_operator(operator.sub, self, other)
-
-    def __mul__(self, other):
-        return AFunction.apply_operator(operator.mul, self, other)
-
-    def __truediv__(self, other):
-        return AFunction.apply_operator(operator.truediv, self, other)
-
-    def __lt__(self, other):
-        return AFunction.apply_operator(operator.lt, self, other)
-
-    def __gt__(self, other):
-        return AFunction.apply_operator(operator.gt, self, other)
-
-    def __le__(self, other):
-        return AFunction.apply_operator(operator.le, self, other)
-
-    def __ge__(self, other):
-        return AFunction.apply_operator(operator.ge, self, other)
-
-    def __eq__(self, other):
-        return AFunction.apply_operator(operator.eq, self, other)
-
-    def __ne__(self, other):
-        return AFunction.apply_operator(operator.ne, self, other)
-
     @staticmethod
-    def apply_operator(op, *args):
-        return AFunction(lambda af: op(*[(x.from_frame(af) if isinstance(x, AFunction) else x) for x in args]))
+    def function_wrapper(func, *args, **kwargs):
+        def applied_func(af):
+            modified_args = [(x.from_frame(af) if isinstance(x, AFunction) else x) for x in args]
+            modified_kwargs = {k: (v.from_frame(af) if isinstance(v, AFunction) else v) for k, v in kwargs.items()}
+            return func(*modified_args, **modified_kwargs)
+        if hasattr(func, '__name__'):
+            applied_func.__name__ = func.__name__
+        return AFunction(applied_func)
 
     def __hash__(self):
         return hash(self.func)
 
 
-class AColumn(AFunction):
+class ANamedFunction(AFunction):
     """
-    Just a named function that can be accessed (and constructed on-the-fly if needed) from an AFrame.
-    No check is done that the shape conforms the DataFrame (hence can be added). Cached in the frame on the calculation.
+    A function containing name. Can be useful for custom operations, where the results cannot be included back
+    into the original frame (such as filtering or groupby aggregations).
     """
-    def __init__(self, name: str, func: Optional[AFunction] = None):
+    def __init__(self, name: str, func: Union[Callable, Any]):
         self.name = name
         super().__init__(func)
 
     def from_frame(self, af):
-        return af[self]
+        result = super().__call__(af)
+        if isinstance(result, pd.Series):
+            return result.rename(self.name)
+        else:
+            return result
+
+
+class AColumn(ANamedFunction):
+    """
+    Just a named function that can be accessed (and constructed on-the-fly if needed) from an AFrame.
+    No check is done that the shape conforms the DataFrame (hence can be added). Cached in the frame on the calculation.
+    """
+    def __init__(self, name: str, func: Optional[Union[AFunction, Callable, Any]] = None, override: bool = False):
+        super().__init__(name=name, func=func)
+        self.override = override  # if True, will override the column with the same name in the AFrame on the first call
+        self.been_applied = False
+
+    def from_frame(self, af):
+        res = af[self]
+        return res
 
     def __str__(self):
         return self.name

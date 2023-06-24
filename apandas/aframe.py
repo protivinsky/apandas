@@ -77,15 +77,6 @@ class AMeta(type):
                 #     # if self.__class__.__name__ == 'AFrame':
                 #     #     print('Here is the full frame\n', self)
 
-                # HACKY FIX:
-                # if isinstance(self, AFrameGroupBy) and method.__name__ == '_wrap_applied_output':
-                #     print('ANOTHER HACKY FIX')
-                #     m = getattr(pd.core.groupby.generic.DataFrameGroupBy, method.__name__)
-                #     result = m(self, *args, **kwargs)
-                #     print(f'GOT RESULT OF TYPE {type(result)}\n{result}')
-                # else:
-                #     result = method(self, *args, **kwargs)
-
                 result = method(self, *args, **kwargs)
 
                 if isinstance(result, pd.DataFrame) and not isinstance(result, AFrame):
@@ -210,10 +201,11 @@ class AFrame(pd.DataFrame, metaclass=AMeta):
 
     def add_acolumn(self, acol: AColumn):
         """ Generate `acol AColumn` in the `AFrame`. """
-        if not acol.name in self.columns:
+        if not acol.name in self.columns or (acol.override and not acol.been_applied):
             if self.verbose:
-                print(f'Key "{acol}" not found in the AFrame, adding.')
+                print(f'Adding {acol.__repr__()} to the AFrame.')
             super().__setitem__(acol.name, acol.func(self))
+            acol.been_applied = True
 
     def to_pandas(self):
         """ Unwrap to pd.DataFrame. """

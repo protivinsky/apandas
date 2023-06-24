@@ -52,6 +52,11 @@ class AFunction:
     def __call__(self, af):
         return self.from_frame(af)
 
+    def __repr__(self):
+        return f"AFunction[{self.func.__name__ if hasattr(self.func, '__name__') else self.func}]"
+
+    __str__ = __repr__
+
     @staticmethod
     def function_wrapper(func, *args, **kwargs):
         @functools.wraps(func)
@@ -74,6 +79,12 @@ class ANamedFunction(AFunction):
         self.name = name
         super().__init__(func)
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"ANamedFunction['{self.name}']"
+
     def from_frame(self, af):
         result = super().__call__(af)
         if isinstance(result, pd.Series):
@@ -95,9 +106,6 @@ class AColumn(ANamedFunction):
     def from_frame(self, af):
         res = af[self]
         return res
-
-    def __str__(self):
-        return self.name
 
     def __repr__(self):
         return f"AColumn['{self.name}']"

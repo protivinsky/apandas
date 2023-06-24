@@ -19,6 +19,8 @@ At the moment, only basic arithmetic operations are supported - this is mostly a
 easy to add support for other operations or for numpy universal functions. Most complicated functions can be
 passed in as lambdas or defined as functions.
 
+"APandas" stands for "Analytic Pandas".
+
 Basic example
 -------------
 
@@ -46,7 +48,8 @@ Basic example
 Installation
 ------------
 
-At the moment, the library is available only on test.pypi.org until it gets more stable. To install it, run:
+At the moment, the library is available only on [test.pypi.org](https://test.pypi.org/project/apandas/) until it gets
+more mature and stable. To install it, run:
 
 .. code:: bash
 

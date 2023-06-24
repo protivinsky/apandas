@@ -13,5 +13,5 @@ APandas: Lightweight wrapper to support custom analytics in Pandas
 ==================================================================
 """
 
-with open('README.rst', 'r') as f:
+with open(os.path.join('..', 'README.rst'), 'r') as f:
     __doc__ = f.read().replace(_remove_from_doc, '')

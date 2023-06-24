@@ -50,8 +50,8 @@ See the tests for more advanced examples.
 Installation
 ------------
 
-At the moment, the library is available only on [test.pypi.org](https://test.pypi.org/project/apandas/) until it gets
-more mature and stable. To install it, run:
+At the moment, the library is available only on `test.pypi.org
+<https://test.pypi.org/project/apandas/>`_ until it gets more mature and stable. To install it, run:
 
 .. code:: bash
 

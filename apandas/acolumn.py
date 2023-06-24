@@ -44,12 +44,25 @@ def _arithmetic_delegate(cls):
     for name, op in operators.items():
         # TODO: it might be better to do it as a proper wrapper with doc, name, type hints etc.
         # need to deal with Python late binding correctly
-        setattr(cls, name, lambda *args, _func=op, **kwargs: cls.function_wrapper(_func, *args, **kwargs))
+        def wrapper(_func=op):
+            @functools.wraps(_func)
+            def func(*args, **kwargs):
+                return cls.function_wrapper(_func, *args, **kwargs)
+            return func
+        setattr(cls, name, wrapper())
 
     for name in pd_series_methods:
         if not hasattr(cls, name):
-            setattr(cls, name, lambda *args, _func=getattr(pd.Series, name), **kwargs: cls.function_wrapper(
-                _func, *args, **kwargs))
+            def wrapper(_func=getattr(pd.Series, name)):
+                @functools.wraps(_func)
+                def func(*args, **kwargs):
+                    return cls.function_wrapper(_func, *args, **kwargs)
+                return func
+            # need to deal with Python late binding correctly
+            setattr(cls, name, wrapper())
+
+            # setattr(cls, name, lambda *args, _func=getattr(pd.Series, name), **kwargs: cls.function_wrapper(
+            #     _func, *args, **kwargs))
 
     return cls
 
@@ -75,12 +88,11 @@ class AFunction:
 
     @staticmethod
     def function_wrapper(func, *args, **kwargs):
+        @functools.wraps(func)
         def applied_func(af):
             modified_args = [(x.from_frame(af) if isinstance(x, AFunction) else x) for x in args]
             modified_kwargs = {k: (v.from_frame(af) if isinstance(v, AFunction) else v) for k, v in kwargs.items()}
             return func(*modified_args, **modified_kwargs)
-        if hasattr(func, '__name__'):
-            applied_func.__name__ = func.__name__
         return AFunction(applied_func)
 
     def __hash__(self):

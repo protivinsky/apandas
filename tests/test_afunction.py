@@ -102,4 +102,3 @@ def test_series_methods(x_y_and_af):
     pd.testing.assert_series_equal(f(af), af[x].cumsum(), check_names=False)
     f = x.cumprod()
     pd.testing.assert_series_equal(f(af), af[x].cumprod(), check_names=False)
-

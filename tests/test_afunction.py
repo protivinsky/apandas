@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from apandas import AFunction, AColumn, AFrame
+from apandas import ANamedFunction, AColumn, AFrame, ASeries
 
 
 @pytest.fixture()
@@ -103,3 +103,20 @@ def test_series_methods(x_y_and_af):
     f = x.cumprod()
     pd.testing.assert_series_equal(f(af), af[x].cumprod(), check_names=False)
 
+
+def test_named_function(x_y_and_af):
+    x, y, af = x_y_and_af
+    f = x + y
+    pd.testing.assert_series_equal(af[f], af[x] + af[y], check_names=False)
+    assert af[f].name is None
+    nf = ANamedFunction('f', x + y)
+    pd.testing.assert_series_equal(af[nf], af[x] + af[y], check_names=False)
+    assert 'f' not in af.columns
+    assert af[nf].name == 'f'
+
+
+def test_advanced_function(x_y_and_af):
+    x, y, af = x_y_and_af
+    y_filtered_diff = ANamedFunction('y_filtered_diff', lambda af: af[x % 2 == 0][y.diff()])
+    pd.testing.assert_series_equal(af[y_filtered_diff], ASeries([np.nan, -2, -2], name='y_filtered_diff'),
+                                   check_index=False)

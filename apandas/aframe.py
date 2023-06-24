@@ -3,7 +3,7 @@ import functools
 from typing import Callable
 import pandas as pd
 import tree
-from .acolumn import AColumn
+from .acolumn import AFunction, AColumn
 
 
 class AMeta(type):
@@ -34,50 +34,59 @@ class AMeta(type):
         def method_wrapper(method, map_args=True):
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
-                if map_args:
-                    orig_args = args.__copy__() if hasattr(args, '__copy__') else args
-                    orig_kwargs = kwargs.copy()
+                # to support access to AFunction - sort of a hack...
+                if name == 'AFrame' and method.__name__ == '__getitem__' and not kwargs and len(args) == 1 \
+                        and not isinstance(args[0], AColumn) and isinstance(args[0], AFunction):
+                    result = args[0](self)
+                    if result.dtype == 'bool':
+                        # for easy filtering -- aligned with pandas ability to filter by lambdas
+                        result = self[result]
 
-                    def map_keys(mapping):
-                        if isinstance(mapping, dict):
-                            keys = list(mapping.keys())
-                            for key in keys:
-                                if isinstance(key, AColumn):
-                                    if method.__name__ != '__setitem__' and key.func is not None:
-                                        if name == 'AFrame':
-                                            self.add_acolumn(key)
-                                        elif name == 'AFrameGroupBy':
-                                            self.obj.add_acolumn(key)
-                                    mapping[key.name] = mapping.pop(key)
+                else:
+                    if map_args:
+                        orig_args = args.__copy__() if hasattr(args, '__copy__') else args
+                        orig_kwargs = kwargs.copy()
 
-                    def map_leaves(x):
-                        if isinstance(x, AColumn):
-                            if method.__name__ != '__setitem__' and x.func is not None:
-                                if name == 'AFrame':
-                                    self.add_acolumn(x)
-                                elif name == 'AFrameGroupBy':
-                                    self.obj.add_acolumn(x)
-                            return x.name
-                        else:
-                            return x
+                        def map_keys(mapping):
+                            if isinstance(mapping, dict):
+                                keys = list(mapping.keys())
+                                for key in keys:
+                                    if isinstance(key, AColumn):
+                                        if method.__name__ != '__setitem__' and key.func is not None:
+                                            if name == 'AFrame':
+                                                self.add_acolumn(key)
+                                            elif name == 'AFrameGroupBy':
+                                                self.obj.add_acolumn(key)
+                                        mapping[key.name] = mapping.pop(key)
 
-                    any_acol_args = any_acol_in_tree(orig_args)
-                    any_acol_kwargs = any_acol_in_tree(orig_kwargs)
-                    if any_acol_args:
-                        args = tree.traverse(map_keys, args)
-                        args = tree.map_structure(map_leaves, args)
-                        # print(f'Converting ARGS: {orig_args} --> {args}')
-                    if any_acol_kwargs:
-                        kwargs = tree.traverse(map_keys, kwargs, top_down=False)
-                        kwargs = tree.map_structure(map_leaves, kwargs)
-                        # print(f'Converting KWARGS: {orig_kwargs} --> {kwargs}')
+                        def map_leaves(x):
+                            if isinstance(x, AColumn):
+                                if method.__name__ != '__setitem__' and x.func is not None:
+                                    if name == 'AFrame':
+                                        self.add_acolumn(x)
+                                    elif name == 'AFrameGroupBy':
+                                        self.obj.add_acolumn(x)
+                                return x.name
+                            else:
+                                return x
 
-                # if method.__name__ not in ['__len__', '__repr__', 'to_string', '__getattr__']:
-                #     print(f'Calling {method.__name__} on {self.__class__.__name__} with args={tuple(a.__repr__() for a in args)}, kwargs={kwargs}')
-                #     # if self.__class__.__name__ == 'AFrame':
-                #     #     print('Here is the full frame\n', self)
+                        any_acol_args = any_acol_in_tree(orig_args)
+                        any_acol_kwargs = any_acol_in_tree(orig_kwargs)
+                        if any_acol_args:
+                            args = tree.traverse(map_keys, args)
+                            args = tree.map_structure(map_leaves, args)
+                            # print(f'Converting ARGS: {orig_args} --> {args}')
+                        if any_acol_kwargs:
+                            kwargs = tree.traverse(map_keys, kwargs, top_down=False)
+                            kwargs = tree.map_structure(map_leaves, kwargs)
+                            # print(f'Converting KWARGS: {orig_kwargs} --> {kwargs}')
 
-                result = method(self, *args, **kwargs)
+                    # if method.__name__ not in ['__len__', '__repr__', 'to_string', '__getattr__']:
+                    #     print(f'Calling {method.__name__} on {self.__class__.__name__} with args={tuple(a.__repr__() for a in args)}, kwargs={kwargs}')
+                    #     # if self.__class__.__name__ == 'AFrame':
+                    #     #     print('Here is the full frame\n', self)
+
+                    result = method(self, *args, **kwargs)
 
                 if isinstance(result, pd.DataFrame) and not isinstance(result, AFrame):
                     # print(f'Converting pd.DataFrame {result} to an AFrame:')

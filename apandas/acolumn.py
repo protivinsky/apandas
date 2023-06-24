@@ -86,7 +86,7 @@ class ANamedFunction(AFunction):
         return f"ANamedFunction['{self.name}']"
 
     def from_frame(self, af):
-        result = super().__call__(af)
+        result = self.func(af)
         if isinstance(result, pd.Series):
             return result.rename(self.name)
         else:

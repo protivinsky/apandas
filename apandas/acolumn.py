@@ -57,6 +57,8 @@ def _arithmetic_delegate(cls):
                 @functools.wraps(_func)
                 def func(*args, **kwargs):
                     return cls.function_wrapper(_func, *args, **kwargs)
+                func.__doc__ = f'A Wrapper for pd.Series.{name} method. See the doc at ' \
+                               f'https://pandas.pydata.org/docs/reference/api/pandas.Series.{name}.html.'
                 return func
             # need to deal with Python late binding correctly
             setattr(cls, name, wrapper())

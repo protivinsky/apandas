@@ -6,70 +6,34 @@ import operator
 import pandas as pd
 
 
-def _arithmetic_delegate(cls):
+def _method_delegate(cls):
     """
     A list of operators and pandas.Series methods that are leveraged to work correctly in on AFunctions
     (and AColumns) - the operators and methods are applied to the underlying pd.Series after the lookup
     of the AFunction (or AColumn) in the AFrame (and possibly after the application of other calculations).
     """
-    operators = {
-        '__add__': operator.add,
-        '__sub__': operator.sub,
-        '__mul__': operator.mul,
-        '__truediv__': operator.truediv,
-        '__floordiv__': operator.floordiv,
-        '__mod__': operator.mod,
-        '__pow__': operator.pow,
-        '__matmul__': operator.matmul,
-        '__and__': operator.and_,
-        '__or__': operator.or_,
-        '__lt__': operator.lt,
-        '__gt__': operator.gt,
-        '__le__': operator.le,
-        '__ge__': operator.ge,
-        '__eq__': operator.eq,
-        '__ne__': operator.ne,
-        '__abs__': operator.abs,
-    }
 
     pd_series_methods = [
-        'diff',
-        'round',
-        'fillna',
-        'replace',
-        'cumsum',
-        'cumprod',
+        '__add__', '__sub__', '__mul__', '__truediv__', '__floordiv__', '__mod__', '__pow__', '__matmul__',
+        '__and__', '__or__', '__lt__', '__gt__', '__le__', '__ge__', '__eq__', '__ne__', '__abs__',
+        'diff', 'round', 'fillna', 'replace', 'cumsum', 'cumprod',
     ]
 
-    for name, op in operators.items():
-        # TODO: it might be better to do it as a proper wrapper with doc, name, type hints etc.
-        # need to deal with Python late binding correctly
-        def wrapper(_func=op):
+    for name in pd_series_methods:
+        # to deal with Python late binding correctly
+        def wrapper(_func=getattr(pd.Series, name)):
             @functools.wraps(_func)
             def func(*args, **kwargs):
                 return cls.function_wrapper(_func, *args, **kwargs)
+            func.__doc__ = f'Wrapper for pd.Series.{name} method. See the doc at ' \
+                           f'https://pandas.pydata.org/docs/reference/api/pandas.Series.{name}.html.'
             return func
         setattr(cls, name, wrapper())
-
-    for name in pd_series_methods:
-        if not hasattr(cls, name):
-            def wrapper(_func=getattr(pd.Series, name)):
-                @functools.wraps(_func)
-                def func(*args, **kwargs):
-                    return cls.function_wrapper(_func, *args, **kwargs)
-                func.__doc__ = f'A Wrapper for pd.Series.{name} method. See the doc at ' \
-                               f'https://pandas.pydata.org/docs/reference/api/pandas.Series.{name}.html.'
-                return func
-            # need to deal with Python late binding correctly
-            setattr(cls, name, wrapper())
-
-            # setattr(cls, name, lambda *args, _func=getattr(pd.Series, name), **kwargs: cls.function_wrapper(
-            #     _func, *args, **kwargs))
 
     return cls
 
 
-@_arithmetic_delegate
+@_method_delegate
 class AFunction:
     """ Represents any function that can be applied to an AFrame / pd.DataFrame. """
     def __init__(self, func: Union[Callable, Any]):

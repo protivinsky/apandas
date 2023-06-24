@@ -42,6 +42,7 @@ def _arithmetic_delegate(cls):
     ]
 
     for name, op in operators.items():
+        # TODO: it might be better to do it as a proper wrapper with doc, name, type hints etc.
         # need to deal with Python late binding correctly
         setattr(cls, name, lambda *args, _func=op, **kwargs: cls.function_wrapper(_func, *args, **kwargs))
 

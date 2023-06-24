@@ -55,8 +55,8 @@ At the moment, the library is available only on test.pypi.org until it gets more
 """
 
 from .version import VERSION as __version__
-from .acolumn import AFunction, AColumn
+from .acolumn import AFunction, ANamedFunction, AColumn
 from .aframe import AFrame, ASeries
 
-__all__ = ['AFunction', 'AColumn', 'AFrame', 'ASeries']
+__all__ = ['AFunction', 'ANamedFunction', 'AColumn', 'AFrame', 'ASeries']
 __author__ = 'Tomas Protivinsky'
